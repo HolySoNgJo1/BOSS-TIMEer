@@ -12,53 +12,59 @@ body {
   padding: 20px;
 }
 
-h1 {
-  text-align: center;
+h1 { text-align: center; }
+
+.panel {
+  background:#020617;
+  border:1px solid #334155;
+  padding:15px;
+  border-radius:10px;
+  margin-bottom:20px;
 }
 
-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 20px;
-  background: #020617;
-}
-
-th, td {
-  border: 1px solid #334155;
-  padding: 10px;
-  text-align: center;
-}
-
-th {
-  background: #020617;
+input {
+  padding:6px;
+  margin-right:6px;
+  border-radius:6px;
+  border:none;
 }
 
 button {
-  background: #2563eb;
-  color: white;
-  border: none;
-  padding: 6px 14px;
-  border-radius: 6px;
-  cursor: pointer;
+  background:#2563eb;
+  color:white;
+  border:none;
+  padding:6px 14px;
+  border-radius:6px;
+  cursor:pointer;
 }
 
-button:hover {
-  background: #1d4ed8;
+button:hover { background:#1d4ed8; }
+
+table {
+  width:100%;
+  border-collapse:collapse;
+  background:#020617;
 }
 
-.manual {
-  color: #4ade80;
-  font-weight: bold;
+th, td {
+  border:1px solid #334155;
+  padding:10px;
+  text-align:center;
 }
 
-.auto {
-  color: #fb923c;
-  font-weight: bold;
-}
+.manual { color:#4ade80; font-weight:bold; }
+.auto { color:#fb923c; font-weight:bold; }
 
-.ready {
-  color: #f87171;
-  font-weight: bold;
+.warn10 { color:#facc15; font-weight:bold; }
+.warn5 {
+  color:#f87171;
+  font-weight:bold;
+  animation: blink 1s infinite;
+}
+.ready { color:#f87171; font-weight:bold; }
+
+@keyframes blink {
+  50% { opacity:0.3; }
 }
 </style>
 </head>
@@ -67,79 +73,98 @@ button:hover {
 
 <h1>🎯 遊戲首領計時器</h1>
 
+<div class="panel">
+  <input id="bossName" placeholder="BOSS 名稱">
+  <input id="bossCycle" type="number" placeholder="刷新週期（分鐘）">
+  <button onclick="addBoss()">新增 BOSS</button>
+</div>
+
 <table>
-  <thead>
-    <tr>
-      <th>BOSS 名稱</th>
-      <th>刷新週期（分鐘）</th>
-      <th>倒數時間</th>
-      <th>最後刷新來源</th>
-      <th>操作</th>
-    </tr>
-  </thead>
-  <tbody id="bossTable"></tbody>
+<thead>
+<tr>
+  <th>BOSS</th>
+  <th>刷新週期</th>
+  <th>倒數時間</th>
+  <th>來源</th>
+  <th>操作</th>
+</tr>
+</thead>
+<tbody id="bossTable"></tbody>
 </table>
 
 <script>
-const AUTO_REFRESH_DELAY = 3 * 60 * 1000; // 3 分鐘
+const AUTO_DELAY = 3 * 60 * 1000;
 
-let bosses = JSON.parse(localStorage.getItem("boss_timer_data")) || [
-  { name: "龍王", cycle: 120, lastTime: Date.now(), source: "manual" },
-  { name: "魔王", cycle: 180, lastTime: Date.now(), source: "manual" },
-  { name: "深淵領主", cycle: 240, lastTime: Date.now(), source: "manual" }
+let bosses = JSON.parse(localStorage.getItem("boss_timer")) || [
+  { name:"龍王", cycle:120, last:Date.now(), source:"manual" }
 ];
 
 function save() {
-  localStorage.setItem("boss_timer_data", JSON.stringify(bosses));
+  localStorage.setItem("boss_timer", JSON.stringify(bosses));
 }
 
-function manualRefresh(index) {
-  bosses[index].lastTime = Date.now();
-  bosses[index].source = "manual";
+function addBoss() {
+  const name = bossName.value.trim();
+  const cycle = parseInt(bossCycle.value);
+  if (!name || !cycle) return alert("請輸入完整資料");
+  bosses.push({ name, cycle, last:Date.now(), source:"manual" });
+  bossName.value = "";
+  bossCycle.value = "";
   save();
 }
 
-function formatTime(ms) {
-  if (ms <= 0) return `<span class="ready">已刷新</span>`;
-  const m = Math.floor(ms / 60000);
-  const s = Math.floor((ms % 60000) / 1000);
-  return `${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+function removeBoss(i) {
+  if (confirm("確定刪除？")) {
+    bosses.splice(i,1);
+    save();
+  }
 }
 
-function update() {
-  const table = document.getElementById("bossTable");
-  table.innerHTML = "";
+function manual(i) {
+  bosses[i].last = Date.now();
+  bosses[i].source = "manual";
+  save();
+}
 
-  bosses.forEach((boss, index) => {
-    const nextTime = boss.lastTime + boss.cycle * 60000;
+function format(remain) {
+  if (remain <= 0) return `<span class="ready">已刷新</span>`;
+  const m = Math.floor(remain/60000);
+  const s = Math.floor(remain%60000/1000);
+  let cls = "";
+  if (m <= 5) cls = "warn5";
+  else if (m <= 10) cls = "warn10";
+  return `<span class="${cls}">${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}</span>`;
+}
+
+function tick() {
+  bossTable.innerHTML = "";
+  bosses.forEach((b,i)=>{
+    const next = b.last + b.cycle*60000;
     const now = Date.now();
-    const remain = nextTime - now;
+    const remain = next - now;
 
-    // 自動刷新判定
-    if (remain < -AUTO_REFRESH_DELAY) {
-      boss.lastTime = nextTime;
-      boss.source = "auto";
+    if (remain < -AUTO_DELAY) {
+      b.last = next;
+      b.source = "auto";
       save();
     }
 
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${boss.name}</td>
-      <td>${boss.cycle}</td>
-      <td>${formatTime(nextTime - now)}</td>
-      <td class="${boss.source}">
-        ${boss.source === "auto" ? "系統自動" : "手動"}
-      </td>
+    bossTable.innerHTML += `
+    <tr>
+      <td>${b.name}</td>
+      <td>${b.cycle}</td>
+      <td>${format(next-now)}</td>
+      <td class="${b.source}">${b.source==="auto"?"系統":"手動"}</td>
       <td>
-        <button onclick="manualRefresh(${index})">擊殺 / 刷新</button>
+        <button onclick="manual(${i})">擊殺</button>
+        <button onclick="removeBoss(${i})">刪除</button>
       </td>
-    `;
-    table.appendChild(tr);
+    </tr>`;
   });
 }
 
-setInterval(update, 1000);
-update();
+setInterval(tick,1000);
+tick();
 </script>
 
 </body>
