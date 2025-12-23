@@ -96,7 +96,9 @@ th, td {
 const AUTO_DELAY = 3 * 60 * 1000;
 
 let bosses = JSON.parse(localStorage.getItem("boss_timer")) || [
-  { name:"龍王", cycle:120, last:Date.now(), source:"manual" }
+  { name:"龍王", cycle:120, last:Date.now(), source:"manual" },
+  { name:"魔王", cycle:180, last:Date.now(), source:"manual" },
+  { name:"深淵領主", cycle:240, last:Date.now(), source:"manual" }
 ];
 
 function save() {
@@ -139,12 +141,12 @@ function format(remain) {
 function tick() {
   bossTable.innerHTML = "";
   bosses.forEach((b,i)=>{
-    const next = b.last + b.cycle*60000;
     const now = Date.now();
-    const remain = next - now;
+    const remain = b.last + b.cycle*60000 - now;
 
+    // 自動刷新判定
     if (remain < -AUTO_DELAY) {
-      b.last = next;
+      b.last = now;  // ✅ 修正：用現在時間重新計算倒數
       b.source = "auto";
       save();
     }
@@ -153,7 +155,7 @@ function tick() {
     <tr>
       <td>${b.name}</td>
       <td>${b.cycle}</td>
-      <td>${format(next-now)}</td>
+      <td>${format(b.last + b.cycle*60000 - now)}</td>
       <td class="${b.source}">${b.source==="auto"?"系統":"手動"}</td>
       <td>
         <button onclick="manual(${i})">擊殺</button>
