@@ -62,6 +62,23 @@ th, td {
   animation: blink 1s infinite;
 }
 @keyframes blink { 50% { opacity:0.4; } }
+
+/* 進度條 */
+.bar {
+  height:10px;
+  background:#1e293b;
+  border-radius:6px;
+  overflow:hidden;
+}
+.bar-inner {
+  height:100%;
+  background:#22c55e;
+}
+.bar-warn10 { background:#facc15; }
+.bar-warn5 {
+  background:#ef4444;
+  animation: blink 1s infinite;
+}
 </style>
 </head>
 
@@ -69,7 +86,6 @@ th, td {
 
 <h1>🎯 遊戲首領計時器</h1>
 
-<!-- 新增 BOSS -->
 <div class="panel">
   <input id="bossName" placeholder="BOSS 名稱">
   <input id="bossCycle" type="number" placeholder="刷新時間（分鐘）">
@@ -82,6 +98,7 @@ th, td {
   <th>BOSS</th>
   <th>刷新週期</th>
   <th>剩餘時間</th>
+  <th>進度</th>
   <th>下次刷新（台灣時間）</th>
   <th>來源</th>
   <th>操作</th>
@@ -105,16 +122,8 @@ function save() {
 function addBoss() {
   const name = bossName.value.trim();
   const cycle = parseInt(bossCycle.value);
-  if (!name || !cycle) {
-    alert("請輸入 BOSS 名稱與刷新時間");
-    return;
-  }
-  bosses.push({
-    name,
-    cycle,
-    last: Date.now(),
-    source: "manual"
-  });
+  if (!name || !cycle) return alert("請輸入完整資料");
+  bosses.push({ name, cycle, last:Date.now(), source:"manual" });
   bossName.value = "";
   bossCycle.value = "";
   save();
@@ -127,7 +136,7 @@ function manual(i) {
 }
 
 function removeBoss(i) {
-  if (confirm("確定刪除這個 BOSS？")) {
+  if (confirm("確定刪除？")) {
     bosses.splice(i,1);
     save();
   }
@@ -152,27 +161,46 @@ function formatTW(ts) {
 
 function tick() {
   const now = Date.now();
-  bossTable.innerHTML = "";
 
-  bosses.forEach((b,i)=>{
+  // 自動刷新（可無限循環）
+  bosses.forEach(b=>{
     const next = b.last + b.cycle*60000;
-
-    // ✅ 系統自動刷新（可無限循環）
     if (now > next + AUTO_DELAY) {
       b.last = now;
       b.source = "auto";
       save();
     }
+  });
+
+  // 🔥 排序：即將刷新優先
+  bosses.sort((a,b)=>{
+    const ra = (a.last + a.cycle*60000) - now;
+    const rb = (b.last + b.cycle*60000) - now;
+    return ra - rb;
+  });
+
+  bossTable.innerHTML = "";
+
+  bosses.forEach((b,i)=>{
+    const total = b.cycle*60000;
+    const remain = b.last + total - now;
+    let progress = Math.min(1, Math.max(0, 1 - remain / total));
+    let barClass = "bar-inner";
+    if (remain <= 5*60000) barClass += " bar-warn5";
+    else if (remain <= 10*60000) barClass += " bar-warn10";
 
     bossTable.innerHTML += `
     <tr>
       <td>${b.name}</td>
       <td>${b.cycle} 分</td>
-      <td>${formatRemain(b.last + b.cycle*60000 - now)}</td>
-      <td>${formatTW(b.last + b.cycle*60000)}</td>
-      <td class="${b.source}">
-        ${b.source === "auto" ? "系統" : "手動"}
+      <td>${formatRemain(remain)}</td>
+      <td>
+        <div class="bar">
+          <div class="${barClass}" style="width:${progress*100}%"></div>
+        </div>
       </td>
+      <td>${formatTW(b.last + total)}</td>
+      <td class="${b.source}">${b.source==="auto"?"系統":"手動"}</td>
       <td>
         <button onclick="manual(${i})">擊殺</button>
         <button onclick="removeBoss(${i})">刪除</button>
