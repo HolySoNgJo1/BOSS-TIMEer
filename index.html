@@ -7,11 +7,39 @@
 <style>
 body {
   font-family: system-ui, sans-serif;
-  background: #0f172a;
-  color: #e5e7eb;
-  padding: 20px;
+  background:#0f172a;
+  color:#e5e7eb;
+  padding:20px;
 }
 h1 { text-align:center; }
+
+.panel {
+  background:#020617;
+  border:1px solid #334155;
+  padding:15px;
+  border-radius:10px;
+  margin-bottom:20px;
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  justify-content:center;
+}
+
+input {
+  padding:6px 10px;
+  border-radius:6px;
+  border:none;
+}
+
+button {
+  background:#2563eb;
+  color:white;
+  border:none;
+  padding:6px 14px;
+  border-radius:6px;
+  cursor:pointer;
+}
+button:hover { background:#1d4ed8; }
 
 table {
   width:100%;
@@ -23,16 +51,6 @@ th, td {
   padding:10px;
   text-align:center;
 }
-
-button {
-  background:#2563eb;
-  color:white;
-  border:none;
-  padding:6px 12px;
-  border-radius:6px;
-  cursor:pointer;
-}
-button:hover { background:#1d4ed8; }
 
 .manual { color:#4ade80; font-weight:bold; }
 .auto { color:#fb923c; font-weight:bold; }
@@ -51,13 +69,20 @@ button:hover { background:#1d4ed8; }
 
 <h1>🎯 遊戲首領計時器</h1>
 
+<!-- 新增 BOSS -->
+<div class="panel">
+  <input id="bossName" placeholder="BOSS 名稱">
+  <input id="bossCycle" type="number" placeholder="刷新時間（分鐘）">
+  <button onclick="addBoss()">新增 BOSS</button>
+</div>
+
 <table>
 <thead>
 <tr>
   <th>BOSS</th>
-  <th>刷新週期(分)</th>
+  <th>刷新週期</th>
   <th>剩餘時間</th>
-  <th>下次刷新(台灣時間)</th>
+  <th>下次刷新（台灣時間）</th>
   <th>來源</th>
   <th>操作</th>
 </tr>
@@ -77,10 +102,35 @@ function save() {
   localStorage.setItem("boss_timer", JSON.stringify(bosses));
 }
 
+function addBoss() {
+  const name = bossName.value.trim();
+  const cycle = parseInt(bossCycle.value);
+  if (!name || !cycle) {
+    alert("請輸入 BOSS 名稱與刷新時間");
+    return;
+  }
+  bosses.push({
+    name,
+    cycle,
+    last: Date.now(),
+    source: "manual"
+  });
+  bossName.value = "";
+  bossCycle.value = "";
+  save();
+}
+
 function manual(i) {
   bosses[i].last = Date.now();
   bosses[i].source = "manual";
   save();
+}
+
+function removeBoss(i) {
+  if (confirm("確定刪除這個 BOSS？")) {
+    bosses.splice(i,1);
+    save();
+  }
 }
 
 function formatRemain(ms) {
@@ -106,9 +156,8 @@ function tick() {
 
   bosses.forEach((b,i)=>{
     const next = b.last + b.cycle*60000;
-    const remain = next - now;
 
-    // ✅ 自動刷新（可無限循環）
+    // ✅ 系統自動刷新（可無限循環）
     if (now > next + AUTO_DELAY) {
       b.last = now;
       b.source = "auto";
@@ -118,12 +167,15 @@ function tick() {
     bossTable.innerHTML += `
     <tr>
       <td>${b.name}</td>
-      <td>${b.cycle}</td>
+      <td>${b.cycle} 分</td>
       <td>${formatRemain(b.last + b.cycle*60000 - now)}</td>
       <td>${formatTW(b.last + b.cycle*60000)}</td>
-      <td class="${b.source}">${b.source==="auto"?"系統":"手動"}</td>
+      <td class="${b.source}">
+        ${b.source === "auto" ? "系統" : "手動"}
+      </td>
       <td>
         <button onclick="manual(${i})">擊殺</button>
+        <button onclick="removeBoss(${i})">刪除</button>
       </td>
     </tr>`;
   });
