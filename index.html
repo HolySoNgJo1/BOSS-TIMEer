@@ -35,9 +35,10 @@ button {
   background:#2563eb;
   color:white;
   border:none;
-  padding:6px 14px;
+  padding:6px 10px;
   border-radius:6px;
   cursor:pointer;
+  margin:2px;
 }
 button:hover { background:#1d4ed8; }
 
@@ -63,7 +64,6 @@ th, td {
 }
 @keyframes blink { 50% { opacity:0.4; } }
 
-/* 進度條 */
 .bar {
   height:10px;
   background:#1e293b;
@@ -111,8 +111,7 @@ th, td {
 const AUTO_DELAY = 3 * 60 * 1000;
 
 let bosses = JSON.parse(localStorage.getItem("boss_timer")) || [
-  { name:"龍王", cycle:120, last:Date.now(), source:"manual" },
-  { name:"魔王", cycle:180, last:Date.now(), source:"manual" }
+  { name:"章魚王", cycle:240, last:Date.now(), source:"manual" }
 ];
 
 function save() {
@@ -131,6 +130,32 @@ function addBoss() {
 
 function manual(i) {
   bosses[i].last = Date.now();
+  bosses[i].source = "manual";
+  save();
+}
+
+function inputKillTime(i) {
+  const input = prompt("請輸入擊殺時間（HH:MM，台灣時間）");
+  if (!input || !/^\d{2}:\d{2}$/.test(input)) {
+    alert("格式錯誤，請輸入 HH:MM");
+    return;
+  }
+
+  const [h,m] = input.split(":").map(Number);
+  const now = new Date();
+  let kill = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+    h, m, 0
+  );
+
+  // 如果輸入時間在未來，視為昨天
+  if (kill.getTime() > now.getTime()) {
+    kill.setDate(kill.getDate() - 1);
+  }
+
+  bosses[i].last = kill.getTime();
   bosses[i].source = "manual";
   save();
 }
@@ -162,7 +187,6 @@ function formatTW(ts) {
 function tick() {
   const now = Date.now();
 
-  // 自動刷新（可無限循環）
   bosses.forEach(b=>{
     const next = b.last + b.cycle*60000;
     if (now > next + AUTO_DELAY) {
@@ -172,11 +196,8 @@ function tick() {
     }
   });
 
-  // 🔥 排序：即將刷新優先
   bosses.sort((a,b)=>{
-    const ra = (a.last + a.cycle*60000) - now;
-    const rb = (b.last + b.cycle*60000) - now;
-    return ra - rb;
+    return (a.last + a.cycle*60000) - (b.last + b.cycle*60000);
   });
 
   bossTable.innerHTML = "";
@@ -202,7 +223,8 @@ function tick() {
       <td>${formatTW(b.last + total)}</td>
       <td class="${b.source}">${b.source==="auto"?"系統":"手動"}</td>
       <td>
-        <button onclick="manual(${i})">擊殺</button>
+        <button onclick="manual(${i})">現在擊殺</button>
+        <button onclick="inputKillTime(${i})">🕒 輸入時間</button>
         <button onclick="removeBoss(${i})">刪除</button>
       </td>
     </tr>`;
