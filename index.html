@@ -6,7 +6,7 @@
 <style>
 body { background:#0b1220;color:#e5e7eb;font-family:system-ui;margin:0;padding:20px }
 h1{text-align:center}
-.controls{display:flex;gap:10px;justify-content:center;margin-bottom:15px}
+.controls{display:flex;gap:10px;justify-content:center;margin-bottom:15px;flex-wrap:wrap}
 input,button{padding:8px 12px;border-radius:6px;border:none}
 button{background:#2563eb;color:white;cursor:pointer}
 table{width:100%;border-collapse:collapse}
@@ -23,8 +23,9 @@ th,td{padding:8px;text-align:center;border-bottom:1px solid #1f2937}
 
 <div class="controls">
   <input id="bossName" placeholder="BOSS 名稱">
-  <input id="bossInterval" type="number" placeholder="刷新時間 (分鐘)">
+  <input id="bossInterval" type="number" placeholder="刷新時間(分鐘)">
   <button onclick="addBoss()">新增</button>
+  <button onclick="shareLink()">分享連結</button>
 </div>
 
 <table>
@@ -34,7 +35,7 @@ th,td{padding:8px;text-align:center;border-bottom:1px solid #1f2937}
   <th>週期</th>
   <th>剩餘</th>
   <th>進度</th>
-  <th>下次刷新</th>
+  <th>下次刷新(台灣)</th>
   <th>來源</th>
   <th>操作</th>
 </tr>
@@ -44,12 +45,24 @@ th,td{padding:8px;text-align:center;border-bottom:1px solid #1f2937}
 
 <script>
 const AUTO_GRACE = 3 * 60 * 1000;
-let bosses = JSON.parse(localStorage.getItem("bossTimer")) || [];
 
+// ====== 讀取分享資料 or 本地資料 ======
+let bosses = [];
+const params = new URLSearchParams(location.search);
+if (params.has("data")) {
+  try {
+    bosses = JSON.parse(decodeURIComponent(atob(params.get("data"))));
+  } catch {
+    bosses = [];
+  }
+} else {
+  bosses = JSON.parse(localStorage.getItem("bossTimer")) || [];
+}
+
+// ====== 工具 ======
 function save(){
   localStorage.setItem("bossTimer", JSON.stringify(bosses));
 }
-
 function formatTW(t){
   return new Date(t).toLocaleTimeString("zh-TW",{hour:"2-digit",minute:"2-digit"});
 }
@@ -60,6 +73,7 @@ function formatRemain(ms){
   return String(m).padStart(2,"0")+":"+String(s).padStart(2,"0");
 }
 
+// ====== 功能 ======
 function addBoss(){
   const n=bossName.value.trim();
   const i=Number(bossInterval.value);
@@ -83,6 +97,15 @@ function removeBoss(i){
   save(); render();
 }
 
+// ====== 分享 ======
+function shareLink(){
+  const data = btoa(encodeURIComponent(JSON.stringify(bosses)));
+  const url = location.origin + location.pathname + "?data=" + data;
+  navigator.clipboard.writeText(url);
+  alert("分享連結已複製");
+}
+
+// ====== 時間推進（核心） ======
 function tick(){
   const now=Date.now();
   bosses.forEach(b=>{
@@ -96,6 +119,7 @@ function tick(){
   render();
 }
 
+// ====== 顯示 ======
 function render(){
   const now=Date.now();
   list.innerHTML="";
