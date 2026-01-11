@@ -4,58 +4,17 @@
 <meta charset="UTF-8" />
 <title>多人同步首領計時器</title>
 <style>
-  body {
-    background: #0b1220;
-    color: #e5e7eb;
-    font-family: system-ui, -apple-system, BlinkMacSystemFont;
-    margin: 0;
-    padding: 20px;
-  }
-  h1 {
-    text-align: center;
-    margin-bottom: 20px;
-  }
-  .controls {
-    display: flex;
-    gap: 10px;
-    justify-content: center;
-    margin-bottom: 20px;
-  }
-  input, button {
-    padding: 8px 12px;
-    border-radius: 6px;
-    border: none;
-    font-size: 14px;
-  }
-  button {
-    cursor: pointer;
-    background: #2563eb;
-    color: white;
-  }
-  table {
-    width: 100%;
-    border-collapse: collapse;
-  }
-  th, td {
-    padding: 10px;
-    border-bottom: 1px solid #1f2937;
-    text-align: center;
-  }
-  th {
-    background: #020617;
-  }
-  .manual { color: #22c55e; }
-  .auto { color: #facc15; }
-  .progress {
-    height: 10px;
-    background: #1f2937;
-    border-radius: 5px;
-    overflow: hidden;
-  }
-  .bar {
-    height: 100%;
-    background: #22c55e;
-  }
+body { background:#0b1220;color:#e5e7eb;font-family:system-ui;margin:0;padding:20px }
+h1{text-align:center}
+.controls{display:flex;gap:10px;justify-content:center;margin-bottom:15px}
+input,button{padding:8px 12px;border-radius:6px;border:none}
+button{background:#2563eb;color:white;cursor:pointer}
+table{width:100%;border-collapse:collapse}
+th,td{padding:8px;text-align:center;border-bottom:1px solid #1f2937}
+.progress{height:10px;background:#1f2937;border-radius:5px;overflow:hidden}
+.bar{height:100%;background:#22c55e}
+.manual{color:#22c55e}
+.auto{color:#facc15}
 </style>
 </head>
 <body>
@@ -65,15 +24,15 @@
 <div class="controls">
   <input id="bossName" placeholder="BOSS 名稱">
   <input id="bossInterval" type="number" placeholder="刷新時間 (分鐘)">
-  <button onclick="addBoss()">新增 BOSS</button>
+  <button onclick="addBoss()">新增</button>
 </div>
 
 <table>
 <thead>
 <tr>
   <th>BOSS</th>
-  <th>刷新週期</th>
-  <th>剩餘時間</th>
+  <th>週期</th>
+  <th>剩餘</th>
   <th>進度</th>
   <th>下次刷新</th>
   <th>來源</th>
@@ -84,105 +43,83 @@
 </table>
 
 <script>
-let bosses = [];
-const AUTO_REFRESH_GRACE = 3 * 60 * 1000;
+const AUTO_GRACE = 3 * 60 * 1000;
+let bosses = JSON.parse(localStorage.getItem("bossTimer")) || [];
 
-function formatTW(ts) {
-  return new Date(ts).toLocaleTimeString("zh-TW", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true
-  });
+function save(){
+  localStorage.setItem("bossTimer", JSON.stringify(bosses));
 }
 
-function formatRemain(ms) {
-  if (ms < 0) ms = 0;
-  const m = Math.floor(ms / 60000);
-  const s = Math.floor((ms % 60000) / 1000);
-  return `${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+function formatTW(t){
+  return new Date(t).toLocaleTimeString("zh-TW",{hour:"2-digit",minute:"2-digit"});
+}
+function formatRemain(ms){
+  if(ms<0) ms=0;
+  const m=Math.floor(ms/60000);
+  const s=Math.floor((ms%60000)/1000);
+  return String(m).padStart(2,"0")+":"+String(s).padStart(2,"0");
 }
 
-function addBoss() {
-  const name = bossName.value.trim();
-  const interval = Number(bossInterval.value);
-  if (!name || !interval) return;
-
-  const now = Date.now();
-  bosses.push({
-    name,
-    interval,
-    last: now,
-    next: now + interval * 60000,
-    source: "手動",
-    autoUsed: false
-  });
-  bossName.value = "";
-  bossInterval.value = "";
-  render();
+function addBoss(){
+  const n=bossName.value.trim();
+  const i=Number(bossInterval.value);
+  if(!n||!i) return;
+  const now=Date.now();
+  bosses.push({name:n,interval:i,last:now,next:now+i*60000,source:"手動"});
+  bossName.value="";bossInterval.value="";
+  save(); render();
 }
 
-function manualRefresh(i) {
-  const now = Date.now();
-  bosses[i].last = now;
-  bosses[i].next = now + bosses[i].interval * 60000;
-  bosses[i].source = "手動";
-  bosses[i].autoUsed = false;
-  render();
+function manualRefresh(i){
+  const now=Date.now();
+  bosses[i].last=now;
+  bosses[i].next=now+bosses[i].interval*60000;
+  bosses[i].source="手動";
+  save(); render();
 }
 
-function removeBoss(i) {
-  bosses.splice(i, 1);
-  render();
+function removeBoss(i){
+  bosses.splice(i,1);
+  save(); render();
 }
 
-function tick() {
-  const now = Date.now();
-
-  bosses.forEach(b => {
-    if (now > b.next + AUTO_REFRESH_GRACE) {
-      b.last = b.next;
-      b.next = b.last + b.interval * 60000;
-      b.source = "系統";
-      b.autoUsed = true;
+function tick(){
+  const now=Date.now();
+  bosses.forEach(b=>{
+    while(now > b.next + AUTO_GRACE){
+      b.last=b.next;
+      b.next=b.last + b.interval*60000;
+      b.source="系統";
     }
   });
-
+  save();
   render();
 }
 
-function render() {
-  const now = Date.now();
-  list.innerHTML = "";
-
-  bosses
-    .sort((a, b) => a.next - b.next)
-    .forEach((b, i) => {
-      const remain = b.next - now;
-      const total = b.interval * 60000;
-      const percent = Math.max(0, Math.min(100, (1 - remain / total) * 100));
-
-      list.innerHTML += `
-        <tr>
-          <td>${b.name}</td>
-          <td>${String(Math.floor(b.interval/60)).padStart(2,"0")}:${String(b.interval%60).padStart(2,"0")}</td>
-          <td>${formatRemain(remain)}</td>
-          <td>
-            <div class="progress">
-              <div class="bar" style="width:${percent}%"></div>
-            </div>
-          </td>
-          <td>${formatTW(b.next)}</td>
-          <td class="${b.source === "手動" ? "manual" : "auto"}">${b.source}</td>
-          <td>
-            <button onclick="manualRefresh(${i})">現在擊殺</button>
-            <button onclick="removeBoss(${i})">刪除</button>
-          </td>
-        </tr>
-      `;
-    });
+function render(){
+  const now=Date.now();
+  list.innerHTML="";
+  bosses.sort((a,b)=>a.next-b.next).forEach((b,i)=>{
+    const remain=b.next-now;
+    const pct=Math.min(100,Math.max(0,(1-remain/(b.interval*60000))*100));
+    list.innerHTML+=`
+    <tr>
+      <td>${b.name}</td>
+      <td>${b.interval}m</td>
+      <td>${formatRemain(remain)}</td>
+      <td><div class="progress"><div class="bar" style="width:${pct}%"></div></div></td>
+      <td>${formatTW(b.next)}</td>
+      <td class="${b.source=="手動"?"manual":"auto"}">${b.source}</td>
+      <td>
+        <button onclick="manualRefresh(${i})">擊殺</button>
+        <button onclick="removeBoss(${i})">刪</button>
+      </td>
+    </tr>`;
+  });
 }
 
-setInterval(tick, 1000);
+setInterval(tick,1000);
+render();
 </script>
 
 </body>
